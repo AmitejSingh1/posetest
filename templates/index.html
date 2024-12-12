@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Pose Detection</title>
+</head>
+<body>
+    <h1>Pose Detection</h1>
+    <video id="video" autoplay></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <div id="output"></div> <!-- For displaying results -->
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const output = document.getElementById('output');
+
+        // Access the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                video.srcObject = stream;
+            })
+            .catch((error) => {
+                console.error("Webcam access error:", error);
+            });
+
+        // Send frame to the server
+        async function sendFrame() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert canvas to Blob
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('frame', blob);
+
+                try {
+                    const response = await fetch('/process_frame', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    const result = await response.json();
+                    displayResults(result);
+                } catch (error) {
+                    console.error("Error sending frame to server:", error);
+                }
+            });
+        }
+
+        // Display pose detection results
+        function displayResults(data) {
+            output.innerHTML = `
+                <p>Landmarks: ${JSON.stringify(data.landmarks)}</p>
+                <p>Bounding Box: ${JSON.stringify(data.bounding_box)}</p>
+            `;
+        }
+
+        // Send frames at regular intervals
+        setInterval(sendFrame, 500); // Sends a frame every 500ms
+    </script>
+</body>
+</html>
